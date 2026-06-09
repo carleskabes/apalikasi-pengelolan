@@ -1,0 +1,1953 @@
+eskripsi: 'Botol kaca utuh berwarna cokelat atau bening.' },
+  { id: 5, nama_jenis: 'Sampah Sisa Sayur', kategori: 'Organik', deskripsi: 'Bahan baku kompos dari dapur, bukan sisa makanan berminyak.' }
+];
+
+const INITIAL_JADWAL = [
+  { id: 1, nama_kelas: 'Kelas 7', instruktur: 'Sri Mulyani', tanggal: '2026-06-12', jam: '09:00 - 11:00', kuota: 25, ruangan: 'Aula Utama' },
+  { id: 2, nama_kelas: 'Kelas 8', instruktur: 'Bambang S.', tanggal: '2026-06-15', jam: '13:00 - 15:00', kuota: 20, ruangan: 'Taman Edukasi' },
+  { id: 3, nama_kelas: 'Kelas 9', instruktur: 'Rina Kartika', tanggal: '2026-06-18', jam: '09:00 - 12:00', kuota: 15, ruangan: 'Laboratorium Kreatif' },
+  { id: 4, nama_kelas: 'Kelas 10', instruktur: 'Yosep Pigai', tanggal: '2026-06-20', jam: '10:00 - 12:00', kuota: 20, ruangan: 'Ruang AI YCAP' }
+];
+
+// Presensi kehadiran lengkap awal untuk semua 12 siswa YCAP
+const INITIAL_KEHADIRAN = [
+  // Kelas 7 (Jadwal 1 - 2026-06-12)
+  { id: 1, peserta_id: 1, jadwal_id: 1, status: 'Hadir', tanggal: '2026-06-12' },   // Aris Dimara
+  { id: 2, peserta_id: 3, jadwal_id: 1, status: 'Hadir', tanggal: '2026-06-12' },   // Hengky Mayor
+  { id: 3, peserta_id: 11, jadwal_id: 1, status: 'Izin', tanggal: '2026-06-12' },  // Lohini Arwakon
+  
+  // Kelas 8 (Jadwal 2 - 2026-06-15)
+  { id: 8, peserta_id: 2, jadwal_id: 2, status: 'Hadir', tanggal: '2026-06-15' },   // Charles Kabes
+  { id: 9, peserta_id: 6, jadwal_id: 2, status: 'Hadir', tanggal: '2026-06-15' },   // Rio Dimara
+  { id: 10, peserta_id: 8, jadwal_id: 2, status: 'Alpa', tanggal: '2026-06-15' },   // Inggo Waropen
+
+  // Kelas 9 (Jadwal 3 - 2026-06-18)
+  { id: 5, peserta_id: 4, jadwal_id: 3, status: 'Hadir', tanggal: '2026-06-18' },   // Donal Gaman
+  { id: 6, peserta_id: 7, jadwal_id: 3, status: 'Sakit', tanggal: '2026-06-18' },   // Mira Sauyai
+  { id: 7, peserta_id: 5, jadwal_id: 3, status: 'Hadir', tanggal: '2026-06-18' },   // Mark Hara
+
+  // Kelas 10 (Jadwal 4 - 2026-06-20)
+  { id: 12, peserta_id: 9, jadwal_id: 4, status: 'Hadir', tanggal: '2026-06-20' },  // Feby Sauyai
+  { id: 13, peserta_id: 10, jadwal_id: 4, status: 'Hadir', tanggal: '2026-06-20' }, // Olla Umpain
+  { id: 14, peserta_id: 12, jadwal_id: 4, status: 'Hadir', tanggal: '2026-06-20' }  // Yuka Burdam
+];
+
+// Nilai konversi per kg berdasarkan Kategori Sampah (Rupiah & Poin)
+const KATEGORI_VALUE = {
+  'Plastik': { rupiah: 3000, poin: 15 },
+  'Kertas': { rupiah: 2000, poin: 10 },
+  'Logam': { rupiah: 6000, poin: 30 },
+  'Kaca': { rupiah: 1500, poin: 8 },
+  'Organik': { rupiah: 1000, poin: 5 }
+};
+
+// Prediksi/Rekomendasi Cerdas dari AI Simulator
+const SIMULATED_AI_RESPONSES = {
+  umum: "Halo! Saya adalah AI Assistant YCAP. Berdasarkan data terkini, kelas Diet Plastik memiliki peningkatan kontribusi sampah daur ulang tertinggi minggu ini. Pertahankan prestasimu!",
+  plastik: "Rekomendasi AI: Botol Plastik PET bernilai tinggi (15 Poin/Kg). Pastikan botol dikosongkan dan diremas sebelum disetor ke bank sampah untuk memaksimalkan kapasitas penyimpanan ruangan.",
+  organik: "Rekomendasi AI: Sampah organik dapur sangat cocok untuk diolah langsung menjadi pupuk kompos di Taman Edukasi YCAP. Kurangi sisa makanan berminyak agar kualitas kompos tetap optimal.",
+  kertas: "Rekomendasi AI: Kertas dan kardus harus disimpan di tempat kering. Kertas basah dapat menurunkan nilai tukar poin sirkularitas hingga 40%.",
+  logam: "Rekomendasi AI: Kaleng aluminium bekas minuman memiliki tingkat sirkularitas 100%. Setoran kategori logam memberikan poin tertinggi per kilogram (30 Poin)!"
+};
+
+export default function App() {
+  // --- STATES ---
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Memulai aplikasi langsung dengan data 12 peserta rill lengkap
+  const [pesertaList, setPesertaList] = useState(DEMO_PESERTA);
+  const [setoranList, setSetoranList] = useState(DEMO_SETORAN);
+  const [jenisSampahList, setJenisSampahList] = useState(INITIAL_JENIS_SAMPAH);
+  const [jadwalList, setJadwalList] = useState(INITIAL_JADWAL);
+  const [kehadiranList, setKehadiranList] = useState(INITIAL_KEHADIRAN);
+  
+  // States khusus tab Kehadiran
+  const [attendanceSubTab, setAttendanceSubTab] = useState('input'); // 'input' atau 'recap'
+  const [selectedJadwalId, setSelectedJadwalId] = useState('1');
+  const [attendanceDate, setAttendanceDate] = useState('2026-06-12');
+  const [tempAttendance, setTempAttendance] = useState({}); // { [pesertaId]: 'Hadir' | 'Izin' etc }
+  
+  // Filter kelas untuk Papan Rekap Kehadiran
+  const [selectedRecapClass, setSelectedRecapClass] = useState('Semua');
+
+  // Custom Toast/Notification state
+  const [notification, setNotification] = useState(null);
+
+  // Custom Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  // Form states
+  const [pesertaForm, setPesertaForm] = useState({ id: null, nama: '', telepon: '', alamat: '', kelas: 'Kelas 7', tanggal_daftar: '' });
+  const [isPesertaModalOpen, setIsPesertaModalOpen] = useState(false);
+
+  const [sampahForm, setSampahForm] = useState({ id: null, nama_jenis: '', kategori: 'Plastik', deskripsi: '' });
+  const [isSampahModalOpen, setIsSampahModalOpen] = useState(false);
+
+  const [setoranForm, setSetoranForm] = useState({ id: null, peserta_id: '', jenis_sampah_id: '', berat: '', tanggal: '' });
+  const [isSetoranModalOpen, setIsSetoranModalOpen] = useState(false);
+
+  const [jadwalForm, setJadwalForm] = useState({ id: null, nama_kelas: 'Kelas 7', instruktur: '', tanggal: '', jam: '', kuota: '', ruangan: '' });
+  const [isJadwalModalOpen, setIsJadwalModalOpen] = useState(false);
+
+  // Filter & Search states
+  const [searchPeserta, setSearchPeserta] = useState('');
+  const [searchSampah, setSearchSampah] = useState('');
+  const [filterKelas, setFilterKelas] = useState('');
+
+  // AI Assistant Interaktif State
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiOutput, setAiOutput] = useState(SIMULATED_AI_RESPONSES.umum);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+
+  // --- HELPER UNTUK NOTIFIKASI ---
+  const showToast = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  // --- MODEL KONFIRMASI CUSTOM ---
+  const openConfirm = (title, message, callback) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        callback();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // --- KECERDASAN BUATAN: SIMULASI ANALISIS REAL-TIME ---
+  const handleAskAI = (keyword) => {
+    setIsAiAnalyzing(true);
+    setAiOutput("AI sedang menganalisis database real-time...");
+    setTimeout(() => {
+      const key = keyword.toLowerCase();
+      if (key.includes("plastik")) {
+        setAiOutput(SIMULATED_AI_RESPONSES.plastik);
+      } else if (key.includes("organik") || key.includes("sayur")) {
+        setAiOutput(SIMULATED_AI_RESPONSES.organik);
+      } else if (key.includes("kertas") || key.includes("kardus")) {
+        setAiOutput(SIMULATED_AI_RESPONSES.kertas);
+      } else if (key.includes("logam") || key.includes("kaleng") || key.includes("aluminium")) {
+        setAiOutput(SIMULATED_AI_RESPONSES.logam);
+      } else {
+        setAiOutput("Analisis AI: Halo! Terus kumpulkan poin gamifikasi untuk mendapatkan Lencana Platinum. Coba tanyakan spesifik seperti 'Plastik', 'Kertas', atau 'Organik' untuk tips mendalam.");
+      }
+      setIsAiAnalyzing(false);
+    }, 850);
+  };
+
+  // --- FITUR RESET & SIMULASI DATA ---
+  const handleLoadDemoData = () => {
+    setPesertaList(DEMO_PESERTA);
+    setSetoranList(DEMO_SETORAN);
+    setKehadiranList(INITIAL_KEHADIRAN);
+    showToast('Berhasil memuat ulang data utama!');
+  };
+
+  const handleClearAllData = () => {
+    openConfirm(
+      'Kosongkan Semua Data',
+      'Apakah Anda yakin ingin menghapus seluruh peserta, setoran, dan presensi? Tindakan ini tidak bisa dibatalkan.',
+      () => {
+        setPesertaList([]);
+        setSetoranList([]);
+        setKehadiranList([]);
+        showToast('Seluruh data peserta dan setoran berhasil dikosongkan!', 'warning');
+      }
+    );
+  };
+
+  // --- COMPUTED DATA & KEUANGAN (BANK SAMPAH) ---
+  const bankSampahData = useMemo(() => {
+    const dataMap = {};
+    pesertaList.forEach(p => {
+      dataMap[p.id] = {
+        ...p,
+        total_berat: 0,
+        total_rupiah: 0,
+        total_poin: 0,
+        setoran_count: 0
+      };
+    });
+
+    setoranList.forEach(s => {
+      const pId = s.peserta_id;
+      const jId = s.jenis_sampah_id;
+      const sampah = jenisSampahList.find(js => js.id === Number(jId));
+      const berat = Number(s.berat || s.weight || 0);
+
+      if (dataMap[pId] && sampah) {
+        const val = KATEGORI_VALUE[sampah.kategori] || { rupiah: 1000, poin: 5 };
+        dataMap[pId].total_berat += berat;
+        dataMap[pId].total_rupiah += berat * val.rupiah;
+        dataMap[pId].total_poin += Math.round(berat * val.poin);
+        dataMap[pId].setoran_count += 1;
+      }
+    });
+
+    return Object.values(dataMap);
+  }, [pesertaList, setoranList, jenisSampahList]);
+
+  // Statistik Real-time
+  const stats = useMemo(() => {
+    const totalPeserta = pesertaList.length;
+    const totalBerat = setoranList.reduce((acc, curr) => acc + Number(curr.berat || curr.weight || 0), 0);
+    const totalRupiah = setoranList.reduce((acc, curr) => {
+      const sampah = jenisSampahList.find(js => js.id === Number(curr.jenis_sampah_id));
+      const val = sampah ? KATEGORI_VALUE[sampah.kategori] : { rupiah: 0 };
+      return acc + (Number(curr.berat || curr.weight || 0) * val.rupiah);
+    }, 0);
+    const totalSetoran = setoranList.length;
+    const totalPoin = bankSampahData.reduce((acc, curr) => acc + curr.total_poin, 0);
+
+    // Hitung rata-rata kehadiran
+    const totalKehadiranRecords = kehadiranList.length;
+    const totalHadir = kehadiranList.filter(k => k.status === 'Hadir').length;
+    const persentaseKehadiran = totalKehadiranRecords > 0 ? Math.round((totalHadir / totalKehadiranRecords) * 100) : 0;
+
+    return { totalPeserta, totalBerat, totalRupiah, totalSetoran, totalPoin, persentaseKehadiran };
+  }, [pesertaList, setoranList, jenisSampahList, bankSampahData, kehadiranList]);
+
+  // --- REKAPITULASI DETAIL KEHADIRAN PER SISWA ---
+  const rekapSiswaKehadiran = useMemo(() => {
+    return pesertaList.map(siswa => {
+      const logs = kehadiranList.filter(k => k.peserta_id === siswa.id);
+      const hadir = logs.filter(l => l.status === 'Hadir').length;
+      const izin = logs.filter(l => l.status === 'Izin').length;
+      const sakit = logs.filter(l => l.status === 'Sakit').length;
+      const alpa = logs.filter(l => l.status === 'Alpa').length;
+      const total = logs.length;
+      const persentase = total > 0 ? Math.round((hadir / total) * 100) : 100; // default 100% jika belum mulai kelas
+
+      return {
+        ...siswa,
+        hadir,
+        izin,
+        sakit,
+        alpa,
+        total,
+        persentase
+      };
+    });
+  }, [pesertaList, kehadiranList]);
+
+  // Menyaring Rekapitulasi Berdasarkan Tab Kelas yang Dipilih
+  const filteredRekapKehadiran = useMemo(() => {
+    if (selectedRecapClass === 'Semua') return rekapSiswaKehadiran;
+    return rekapSiswaKehadiran.filter(siswa => siswa.kelas === selectedRecapClass);
+  }, [rekapSiswaKehadiran, selectedRecapClass]);
+
+  // --- CRUD PESERTA ---
+  const handleSavePeserta = (e) => {
+    e.preventDefault();
+    if (!pesertaForm.nama || !pesertaForm.telepon || !pesertaForm.kelas) {
+      showToast('Mohon lengkapi semua data wajib!', 'error');
+      return;
+    }
+
+    if (pesertaForm.id) {
+      setPesertaList(prev => prev.map(p => p.id === pesertaForm.id ? { ...pesertaForm } : p));
+      showToast('Data peserta berhasil diperbarui!');
+    } else {
+      const newId = pesertaList.length > 0 ? Math.max(...pesertaList.map(p => p.id)) + 1 : 1;
+      const today = new Date().toISOString().split('T')[0];
+      setPesertaList(prev => [...prev, { ...pesertaForm, id: newId, kelas: pesertaForm.kelas, tanggal_daftar: pesertaForm.tanggal_daftar || today }]);
+      showToast(`Peserta "${pesertaForm.nama}" berhasil ditambahkan!`);
+    }
+    setIsPesertaModalOpen(false);
+    setPesertaForm({ id: null, nama: '', telepon: '', alamat: '', kelas: 'Kelas 7', tanggal_daftar: '' });
+  };
+
+  const handleEditPeserta = (peserta) => {
+    setPesertaForm(peserta);
+    setIsPesertaModalOpen(true);
+  };
+
+  const handleDeletePeserta = (id) => {
+    const namaPeserta = pesertaList.find(p => p.id === id)?.nama || '';
+    openConfirm(
+      'Hapus Peserta',
+      `Apakah Anda yakin ingin menghapus data peserta "${namaPeserta}" dari sistem YCAP?`,
+      () => {
+        setPesertaList(prev => prev.filter(p => p.id !== id));
+        showToast(`Peserta "${namaPeserta}" berhasil dihapus!`, 'warning');
+      }
+    );
+  };
+
+  // --- CRUD JENIS SAMPAH ---
+  const handleSaveSampah = (e) => {
+    e.preventDefault();
+    if (!sampahForm.nama_jenis || !sampahForm.kategori) {
+      showToast('Mohon lengkapi data wajib jenis sampah!', 'error');
+      return;
+    }
+
+    if (sampahForm.id) {
+      setJenisSampahList(prev => prev.map(s => s.id === sampahForm.id ? { ...sampahForm } : s));
+      showToast('Data jenis sampah berhasil diperbarui!');
+    } else {
+      const newId = jenisSampahList.length > 0 ? Math.max(...jenisSampahList.map(s => s.id)) + 1 : 1;
+      setJenisSampahList(prev => [...prev, { ...sampahForm, id: newId }]);
+      showToast('Jenis sampah baru berhasil ditambahkan!');
+    }
+    setIsSampahModalOpen(false);
+    setSampahForm({ id: null, nama_jenis: '', kategori: 'Plastik', deskripsi: '' });
+  };
+
+  const handleEditSampah = (sampah) => {
+    setSampahForm(sampah);
+    setIsSampahModalOpen(true);
+  };
+
+  const handleDeleteSampah = (id) => {
+    const namaJenis = jenisSampahList.find(s => s.id === id)?.nama_jenis || '';
+    openConfirm(
+      'Hapus Jenis Sampah',
+      `Hapus kriteria sampah "${namaJenis}"?`,
+      () => {
+        setJenisSampahList(prev => prev.filter(s => s.id !== id));
+        showToast('Jenis sampah berhasil dihapus.', 'warning');
+      }
+    );
+  };
+
+  // --- CRUD SETORAN SAMPAH ---
+  const handleSaveSetoran = (e) => {
+    e.preventDefault();
+    if (!setoranForm.peserta_id || !setoranForm.jenis_sampah_id || !setoranForm.berat) {
+      showToast('Mohon isi semua field setoran sampah!', 'error');
+      return;
+    }
+
+    const beratNum = parseFloat(setoranForm.berat);
+    if (isNaN(beratNum) || beratNum <= 0) {
+      showToast('Berat sampah harus berupa angka positif!', 'error');
+      return;
+    }
+
+    if (setoranForm.id) {
+      setSetoranList(prev => prev.map(s => s.id === setoranForm.id ? { ...setoranForm, berat: beratNum } : s));
+      showToast('Data setoran berhasil diperbarui!');
+    } else {
+      const newId = setoranList.length > 0 ? Math.max(...setoranList.map(s => s.id)) + 1 : 1;
+      const today = new Date().toISOString().split('T')[0];
+      setSetoranList(prev => [...prev, {
+        ...setoranForm,
+        id: newId,
+        berat: beratNum,
+        tanggal: setoranForm.tanggal || today
+      }]);
+      showToast('Setoran sampah berhasil dicatat!');
+    }
+    setIsSetoranModalOpen(false);
+    setSetoranForm({ id: null, peserta_id: '', jenis_sampah_id: '', berat: '', tanggal: '' });
+  };
+
+  const handleDeleteSetoran = (id) => {
+    openConfirm(
+      'Hapus Riwayat Setoran',
+      'Apakah Anda ingin menghapus log catatan setoran sampah ini?',
+      () => {
+        setSetoranList(prev => prev.filter(s => s.id !== id));
+        showToast('Data setoran berhasil dihapus.', 'warning');
+      }
+    );
+  };
+
+  // --- CRUD JADWAL KELAS ---
+  const handleSaveJadwal = (e) => {
+    e.preventDefault();
+    if (!jadwalForm.nama_kelas || !jadwalForm.tanggal || !jadwalForm.instruktur) {
+      showToast('Mohon isi field kelas yang wajib!', 'error');
+      return;
+    }
+
+    if (jadwalForm.id) {
+      setJadwalList(prev => prev.map(j => j.id === jadwalForm.id ? { ...jadwalForm } : j));
+      showToast('Jadwal kelas berhasil diperbarui!');
+    } else {
+      const newId = jadwalList.length > 0 ? Math.max(...jadwalList.map(j => j.id)) + 1 : 1;
+      setJadwalList(prev => [...prev, { ...jadwalForm, id: newId }]);
+      showToast('Jadwal baru berhasil diagendakan!');
+    }
+    setIsJadwalModalOpen(false);
+    setJadwalForm({ id: null, nama_kelas: 'Kelas 7', instruktur: '', tanggal: '', jam: '', kuota: '', ruangan: '' });
+  };
+
+  const handleDeleteJadwal = (id) => {
+    const namaKelas = jadwalList.find(j => j.id === id)?.nama_kelas || '';
+    openConfirm(
+      'Hapus Jadwal Kelas',
+      `Hapus agenda untuk "${namaKelas}"?`,
+      () => {
+        setJadwalList(prev => prev.filter(j => j.id !== id));
+        showToast('Jadwal berhasil dihapus.', 'warning');
+      }
+    );
+  };
+
+  // --- AKSI & MANAJEMEN PRESENSI (KEHADIRAN) ---
+  const activeJadwalInfo = useMemo(() => {
+    return jadwalList.find(j => j.id === Number(selectedJadwalId));
+  }, [jadwalList, selectedJadwalId]);
+
+  const studentsInSelectedClass = useMemo(() => {
+    if (!activeJadwalInfo) return [];
+    return pesertaList.filter(p => p.kelas === activeJadwalInfo.nama_kelas);
+  }, [pesertaList, activeJadwalInfo]);
+
+  // Memuat data presensi yang sudah disimpan ketika jadwal/tanggal berubah
+  useEffect(() => {
+    const updatedTemp = {};
+    studentsInSelectedClass.forEach(student => {
+      const existingRecord = kehadiranList.find(
+        k => k.peserta_id === student.id && 
+             k.jadwal_id === Number(selectedJadwalId) && 
+             k.tanggal === attendanceDate
+      );
+      updatedTemp[student.id] = existingRecord ? existingRecord.status : 'Hadir'; // Default 'Hadir'
+    });
+    setTempAttendance(updatedTemp);
+  }, [selectedJadwalId, attendanceDate, studentsInSelectedClass, kehadiranList]);
+
+  const handleStatusChange = (studentId, status) => {
+    setTempAttendance(prev => ({ ...prev, [studentId]: status }));
+  };
+
+  const handleSaveAttendance = () => {
+    let updatedKehadiran = [...kehadiranList];
+
+    studentsInSelectedClass.forEach(student => {
+      const statusValue = tempAttendance[student.id] || 'Hadir';
+      
+      const existingIndex = updatedKehadiran.findIndex(
+        k => k.peserta_id === student.id && 
+             k.jadwal_id === Number(selectedJadwalId) && 
+             k.tanggal === attendanceDate
+      );
+
+      if (existingIndex !== -1) {
+        updatedKehadiran[existingIndex].status = statusValue;
+      } else {
+        const newId = updatedKehadiran.length > 0 ? Math.max(...updatedKehadiran.map(k => k.id)) + 1 : 1;
+        updatedKehadiran.push({
+          id: newId,
+          peserta_id: student.id,
+          jadwal_id: Number(selectedJadwalId),
+          status: statusValue,
+          tanggal: attendanceDate
+        });
+      }
+    });
+
+    setKehadiranList(updatedKehadiran);
+    showToast(`Presensi kelas untuk tanggal ${attendanceDate} berhasil disimpan!`);
+  };
+
+  // --- HELPER PENCARIAN & FILTER ---
+  const filteredPeserta = useMemo(() => {
+    return pesertaList.filter(p => {
+      const matchesSearch = p.nama.toLowerCase().includes(searchPeserta.toLowerCase()) || 
+                            p.telepon.includes(searchPeserta) || 
+                            p.kelas.toLowerCase().includes(searchPeserta.toLowerCase());
+      const matchesKelas = filterKelas ? p.kelas === filterKelas : true;
+      return matchesSearch && matchesKelas;
+    });
+  }, [pesertaList, searchPeserta, filterKelas]);
+
+  const uniqueKelasList = useMemo(() => {
+    const set = new Set(pesertaList.map(p => p.kelas));
+    return Array.from(set).filter(Boolean);
+  }, [pesertaList]);
+
+
+  return (
+    <div className="min-h-screen bg-slate-955 text-slate-100 font-sans flex flex-col md:flex-row">
+      {/* SIDEBAR (YCAP BRANDING) */}
+      <aside className="w-full md:w-64 bg-slate-900 text-white shrink-0 shadow-lg flex flex-col justify-between border-r border-slate-850">
+        <div>
+          {/* Logo YCAP dan Judul */}
+          <div className="p-6 border-b border-slate-850 flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <img 
+                src="image_5de924.png" 
+                alt="Logo YCAP" 
+                className="w-12 h-11 object-contain bg-slate-800 rounded-full p-0.5 border-2 border-sky-400 shadow-lg"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://img.icons8.com/color/96/school.png";
+                }}
+              />
+            </div>
+            <div>
+              <h1 className="font-extrabold text-sm tracking-wider text-sky-400">SMART CHILD AID</h1>
+              <p className="text-[10px] text-slate-400 leading-tight">Yayasan Cahaya Anak Papua</p>
+            </div>
+          </div>
+
+          {/* Navigasi Utama */}
+          <nav className="p-4 space-y-1">
+            {[
+              { id: 'dashboard', label: 'Dashboard Analitik', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+                </svg>
+              )},
+              { id: 'peserta', label: 'Data Peserta', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              )},
+              { id: 'kehadiran', label: 'Kehadiran Siswa', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 112-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              )},
+              { id: 'jenis_sampah', label: 'Data Jenis Sampah', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              )},
+              { id: 'setoran', label: 'Setoran Sampah', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" />
+                </svg>
+              )},
+              { id: 'bank_sampah', label: 'Bank & Gamifikasi Poin', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )},
+              { id: 'jadwal', label: 'Jadwal Kelas', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              )},
+              { id: 'laporan', label: 'Laporan & Grafik', icon: (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              )}
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all text-sm ${
+                  activeTab === item.id 
+                    ? 'bg-sky-650 text-white font-semibold shadow-md' 
+                    : 'text-slate-350 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+        
+        {/* Footer Sidebar */}
+        <div className="p-4 border-t border-slate-850 text-xs text-slate-500 text-center">
+          © 2026 YCAP Bilingual School
+        </div>
+      </aside>
+
+      {/* WORKSPACE AREA */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-x-hidden bg-slate-955">
+        {/* HEADER */}
+        <header className="bg-slate-900 border-b border-slate-850 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-bold text-sky-400 uppercase tracking-widest bg-sky-950/80 border border-sky-800/50 px-2.5 py-1 rounded-full">
+              Pelopor Sekolah Berbasis Gamifikasi dan AI
+            </span>
+            <h2 className="text-xl font-extrabold text-slate-100 mt-1">
+              {activeTab === 'dashboard' && 'Selamat Datang di Smart Child Aid Papua'}
+              {activeTab === 'peserta' && 'Manajemen Terintegrasi: Data Siswa'}
+              {activeTab === 'kehadiran' && 'Manajemen Presensi & Kehadiran Siswa'}
+              {activeTab === 'jenis_sampah' && 'Katalog Jenis Sampah'}
+              {activeTab === 'setoran' && 'Pencatatan Setoran Sampah'}
+              {activeTab === 'bank_sampah' && 'Tabungan Siswa & Gamifikasi Poin'}
+              {activeTab === 'jadwal' && 'Jadwal Kelas Edukasi YCAP'}
+              {activeTab === 'laporan' && 'Laporan & Visualisasi Dampak'}
+            </h2>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+            <button
+              onClick={handleLoadDemoData}
+              className="px-3.5 py-2 bg-sky-955 hover:bg-sky-900/80 border border-sky-800 text-sky-400 rounded-xl text-xs font-bold transition-all"
+            >
+              🔄 Setel Ulang Data Utama
+            </button>
+            <button
+              onClick={handleClearAllData}
+              className="px-3.5 py-2 bg-rose-955 hover:bg-rose-900/80 border border-rose-800 text-rose-450 rounded-xl text-xs font-bold transition-all"
+            >
+              🗑️ Kosongkan Semua
+            </button>
+          </div>
+        </header>
+
+        {/* NOTIFIKASI TOAST */}
+        {notification && (
+          <div className="px-6 pt-4">
+            <div className={`p-4 rounded-xl flex items-center justify-between shadow-lg transition-all ${
+              notification.type === 'success' ? 'bg-sky-950/90 border-l-4 border-sky-500 text-sky-200' :
+              notification.type === 'warning' ? 'bg-amber-950/90 border-l-4 border-amber-500 text-amber-200' :
+              'bg-rose-950/90 border-l-4 border-rose-500 text-rose-200'
+            }`}>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">🔔</span>
+                <span className="text-xs font-semibold">{notification.message}</span>
+              </div>
+              <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-slate-200 text-sm font-bold">×</button>
+            </div>
+          </div>
+        )}
+
+        {/* CONTAINER CONTENT */}
+        <div className="p-6 flex-1 overflow-y-auto space-y-6">
+          
+          {/* ==========================================
+              1. TAB: DASHBOARD (ANALISIS REAL-TIME & AI)
+             ========================================== */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6">
+              
+              {/* JUMBOTRON: BRANDING UTAMA */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-950 text-white p-6 sm:p-8 shadow-xl border border-slate-800">
+                <div className="absolute right-0 top-0 w-48 h-48 bg-sky-500/10 rounded-full blur-3xl"></div>
+                <div className="absolute left-1/3 bottom-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                
+                <div className="relative z-10 max-w-2xl space-y-3">
+                  <div className="inline-flex items-center space-x-2 bg-sky-500/20 text-sky-355 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                    ⚡ Kecerdasan Buatan & Gamifikasi Hijau
+                  </div>
+                  <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight text-white">
+                    Smart Child Aid Papua
+                  </h1>
+                  <p className="text-xs sm:text-sm text-sky-100/80 leading-relaxed font-light">
+                    Pelopor sekolah berbasis Gamifikasi dan Kecerdasan Buatan. Kami mengintegrasikan kepedulian lingkungan hidup dengan teknologi kurikulum masa depan untuk anak-anak Papua.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1.5">
+                    <button 
+                      onClick={() => setActiveTab('setoran')}
+                      className="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md"
+                    >
+                      + Catat Setoran Daur Ulang
+                    </button>
+                    <button 
+                      onClick={() => setActiveTab('kehadiran')}
+                      className="bg-slate-800/80 hover:bg-slate-700/80 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all border border-slate-700"
+                    >
+                      Presensi Siswa Hari Ini
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION: ANALISIS REAL-TIME STATISTIK */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-extrabold text-slate-300 text-sm flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse"></span>
+                    <span>Analisis Real-time Sistem</span>
+                  </h3>
+                  <span className="text-[10px] text-slate-500 font-mono font-medium">Terakhir diperbarui: Baru Saja</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Card Siswa */}
+                  <div className="bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-850 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Total Siswa Aktif</p>
+                      <h3 className="text-xl font-black text-slate-100 mt-1">{stats.totalPeserta}</h3>
+                      <p className="text-[10px] text-emerald-400 mt-0.5">Siswa terdaftar</p>
+                    </div>
+                    <div className="p-3 bg-sky-950/50 text-sky-400 rounded-xl">
+                      👥
+                    </div>
+                  </div>
+
+                  {/* Card Sampah */}
+                  <div className="bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-850 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Sampah Terkumpul</p>
+                      <h3 className="text-xl font-black text-slate-100 mt-1">{stats.totalBerat.toFixed(1)} <span className="text-xs font-normal text-slate-400">Kg</span></h3>
+                      <p className="text-[10px] text-sky-455 mt-0.5">Daur Ulang Sukses</p>
+                    </div>
+                    <div className="p-3 bg-indigo-955/50 text-indigo-400 rounded-xl">
+                      ♻️
+                    </div>
+                  </div>
+
+                  {/* Card Saldo */}
+                  <div className="bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-850 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Dana Sirkular Siswa</p>
+                      <h3 className="text-xl font-black text-slate-100 mt-1">Rp {stats.totalRupiah.toLocaleString('id-ID')}</h3>
+                      <p className="text-[10px] text-emerald-400 mt-0.5">Tabungan tersalurkan</p>
+                    </div>
+                    <div className="p-3 bg-amber-955/50 text-amber-400 rounded-xl">
+                      🪙
+                    </div>
+                  </div>
+
+                  {/* Card Poin */}
+                  <div className="bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-850 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Total Poin</p>
+                      <h3 className="text-xl font-black text-slate-100 mt-1">⭐ {stats.totalPoin}</h3>
+                      <p className="text-[10px] text-indigo-455 mt-0.5">Skor kumulatif</p>
+                    </div>
+                    <div className="p-3 bg-emerald-955/50 text-emerald-400 rounded-xl">
+                      🏆
+                    </div>
+                  </div>
+
+                  {/* Card Kehadiran */}
+                  <div className="bg-slate-900 p-4 rounded-2xl shadow-md border border-slate-850 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-455 uppercase tracking-wider">Rata-rata Presensi</p>
+                      <h3 className="text-xl font-black text-slate-100 mt-1">{stats.persentaseKehadiran}%</h3>
+                      <p className="text-[10px] text-sky-400 mt-0.5">Kehadiran siswa</p>
+                    </div>
+                    <div className="p-3 bg-teal-955/50 text-teal-400 rounded-xl">
+                      📝
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRID INTERAKTIF */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* WIDGET KECERDASAN BUATAN */}
+                <div className="lg:col-span-2 bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xl">🤖</span>
+                    <div>
+                      <h4 className="font-extrabold text-slate-200 text-sm">Kecerdasan Buatan (YCAP AI Assistant)</h4>
+                      <p className="text-[10px] text-slate-500">Analisis prediktif limbah sekolah dan sistem rekomendasi sirkular</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-155 text-xs text-slate-300 leading-relaxed min-h-24 flex items-center relative overflow-hidden">
+                    {isAiAnalyzing && (
+                      <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center space-x-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-sky-500 animate-ping"></span>
+                        <span className="font-bold text-sky-400">AI sedang berpikir...</span>
+                      </div>
+                    )}
+                    <p className="font-medium">{aiOutput}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-455 uppercase">Tanya Asisten AI Sekolah:</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Contoh: 'plastik', 'kertas', 'organik'..."
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAskAI(aiPrompt);
+                            setAiPrompt('');
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          handleAskAI(aiPrompt);
+                          setAiPrompt('');
+                        }}
+                        className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md"
+                      >
+                        Analisis
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {['Plastik', 'Organik', 'Kertas', 'Logam'].map(keyword => (
+                        <button
+                          key={keyword}
+                          onClick={() => handleAskAI(keyword)}
+                          className="text-[10px] font-semibold text-sky-400 bg-sky-950/50 hover:bg-sky-900/50 border border-sky-850 px-2.5 py-1 rounded-lg transition-all"
+                        >
+                          🔍 {keyword}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* VISUAL KATEGORI */}
+                <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 flex flex-col justify-between space-y-4">
+                  <div>
+                    <h4 className="font-extrabold text-slate-200 text-sm mb-1">Distribusi Sampah Sekolah</h4>
+                    <p className="text-[10px] text-slate-500">Proporsi jenis sampah terkumpul real-time</p>
+                  </div>
+
+                  <div className="space-y-3 flex-1 flex flex-col justify-center">
+                    {Object.keys(KATEGORI_VALUE).map(cat => {
+                      const totalBeratKategori = setoranList
+                        .filter(s => {
+                          const sampah = jenisSampahList.find(js => js.id === Number(s.jenis_sampah_id));
+                          return sampah && sampah.kategori === cat;
+                        })
+                        .reduce((sum, s) => sum + Number(s.berat || s.weight || 0), 0);
+
+                      const persentase = stats.totalBerat > 0 ? (totalBeratKategori / stats.totalBerat) * 100 : 0;
+
+                      return (
+                        <div key={cat} className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-semibold text-slate-350">
+                            <span>{cat}</span>
+                            <span className="text-slate-200">{totalBeratKategori.toFixed(1)} kg ({persentase.toFixed(0)}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-855">
+                            <div
+                              className={`h-full rounded-full ${
+                                cat === 'Plastik' ? 'bg-amber-500' :
+                                cat === 'Kertas' ? 'bg-blue-500' :
+                                cat === 'Logam' ? 'bg-indigo-500' :
+                                cat === 'Kaca' ? 'bg-purple-500' : 'bg-sky-505'
+                              }`}
+                              style={{ width: `${Math.max(persentase, 4)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* DAFTAR KELAS EDUKASI YCAP */}
+              <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-extrabold text-slate-200 text-sm">Agenda Pembelajaran Kelas Mingguan</h4>
+                    <p className="text-[10px] text-slate-500">Modul kurikulum hijau YCAP</p>
+                  </div>
+                  <button onClick={() => setActiveTab('jadwal')} className="text-xs font-semibold text-sky-400 hover:underline">
+                    Lihat Semua
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {jadwalList.map(j => {
+                    const registered = pesertaList.filter(p => p.kelas === j.nama_kelas).length;
+                    return (
+                      <div key={j.id} className="p-4 bg-slate-950 border border-slate-855 rounded-xl space-y-2 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-sky-400 bg-sky-955/80 border border-sky-900/50 px-2 py-0.5 rounded">
+                              {j.ruangan}
+                            </span>
+                            <span className="text-[9px] text-slate-550 font-medium">{j.tanggal}</span>
+                          </div>
+                          <h5 className="font-bold text-slate-200 text-xs mt-2">{j.nama_kelas}</h5>
+                          <p className="text-[10px] text-slate-400">Guru: {j.instruktur}</p>
+                        </div>
+                        <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-[10px]">
+                          <span className="text-slate-500">Siswa Hadir:</span>
+                          <span className="font-bold text-slate-300">{registered} / {j.kuota} Siswa</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ==========================================
+              2. TAB: DATA PESERTA (MANAJEMEN INTEGRASI)
+             ========================================== */}
+          {activeTab === 'peserta' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+              {/* Toolbar Pencarian & Aksi */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Cari nama, telepon, atau kelas..."
+                      value={searchPeserta}
+                      onChange={(e) => setSearchPeserta(e.target.value)}
+                      className="w-full sm:w-64 pl-10 pr-4 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                    />
+                    <svg className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <select
+                    value={filterKelas}
+                    onChange={(e) => setFilterKelas(e.target.value)}
+                    className="border border-slate-800 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-sky-500 text-slate-300 bg-slate-950 font-medium"
+                  >
+                    <option value="">Semua Kelas</option>
+                    <option value="Kelas 7">Kelas 7</option>
+                    <option value="Kelas 8">Kelas 8</option>
+                    <option value="Kelas 9">Kelas 9</option>
+                    <option value="Kelas 10">Kelas 10</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setPesertaForm({ id: null, nama: '', telepon: '', alamat: '', kelas: 'Kelas 7', tanggal_daftar: '' });
+                    setIsPesertaModalOpen(true);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center space-x-2 shadow-md"
+                >
+                  <span>+ Registrasi Peserta Didik</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-955 border-b border-slate-850">
+                    <tr>
+                      <th className="py-3 px-4">Nama Lengkap</th>
+                      <th className="py-3 px-4">No. HP Kontak</th>
+                      <th className="py-3 px-4">Alamat Domisili</th>
+                      <th className="py-3 px-4">Kelas Terdaftar</th>
+                      <th className="py-3 px-4">Tanggal Gabung</th>
+                      <th className="py-3 px-4 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-855">
+                    {filteredPeserta.length > 0 ? (
+                      filteredPeserta.map(p => (
+                        <tr key={p.id} className="hover:bg-slate-850/40 transition-colors">
+                          <td className="py-4 px-4 font-bold text-slate-100">{p.nama}</td>
+                          <td className="py-4 px-4 font-mono text-slate-400">{p.telepon}</td>
+                          <td className="py-4 px-4 max-w-xs truncate text-slate-400">{p.alamat || '-'}</td>
+                          <td className="py-4 px-4">
+                            <span className="inline-block px-2.5 py-1 font-semibold rounded-full bg-sky-905/80 border border-sky-900/50 text-sky-400">
+                              {p.kelas}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 font-medium text-slate-400">{p.tanggal_daftar}</td>
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex justify-center items-center space-x-2">
+                              <button
+                                onClick={() => handleEditPeserta(p)}
+                                className="p-1.5 bg-slate-800 hover:bg-sky-950 text-slate-300 hover:text-sky-400 rounded-lg transition-colors border border-slate-700/50"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleDeletePeserta(p.id)}
+                                className="p-1.5 bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-450 rounded-lg transition-colors border border-slate-700/50"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="py-8 text-center text-slate-500">Belum ada siswa terdaftar.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MODAL PENDAFTARAN PESERTA */}
+              {isPesertaModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+                  <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-800">
+                    <div className="px-6 py-4 bg-slate-955 text-slate-100 flex items-center justify-between border-b border-slate-800">
+                      <h3 className="font-bold text-sm">{pesertaForm.id ? 'Edit Data Peserta Didik' : 'Pendaftaran Baru - YCAP'}</h3>
+                      <button onClick={() => setIsPesertaModalOpen(false)} className="text-slate-400 hover:text-slate-200 font-bold text-lg">×</button>
+                    </div>
+                    <form onSubmit={handleSavePeserta} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Nama Lengkap Siswa *</label>
+                        <input
+                          type="text"
+                          required
+                          value={pesertaForm.nama}
+                          onChange={(e) => setPesertaForm(prev => ({ ...prev, nama: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">No. HP Orang Tua / Kontak *</label>
+                        <input
+                          type="text"
+                          required
+                          value={pesertaForm.telepon}
+                          onChange={(e) => setPesertaForm(prev => ({ ...prev, telepon: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Pilihan Kelas *</label>
+                        <select
+                          required
+                          value={pesertaForm.kelas}
+                          onChange={(e) => setPesertaForm(prev => ({ ...prev, kelas: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500 bg-slate-950"
+                        >
+                          <option value="">-- Pilih Kelas --</option>
+                          <option value="Kelas 7">Kelas 7</option>
+                          <option value="Kelas 8">Kelas 8</option>
+                          <option value="Kelas 9">Kelas 9</option>
+                          <option value="Kelas 10">Kelas 10</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Alamat Domisili Siswa</label>
+                        <textarea
+                          value={pesertaForm.alamat}
+                          onChange={(e) => setPesertaForm(prev => ({ ...prev, alamat: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          rows="3"
+                        ></textarea>
+                      </div>
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsPesertaModalOpen(false)}
+                          className="px-4 py-2 rounded-xl text-xs border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                        >
+                          Simpan Registrasi
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              TAB KEHADIRAN SISWA (PRESENSI & REKAPITULASI DETAIL PER KELAS)
+             ========================================== */}
+          {activeTab === 'kehadiran' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-6">
+              {/* Tab Header & Navigator */}
+              <div className="border-b border-slate-850 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-extrabold text-slate-200 text-base">Manajemen & Rekap Presensi Kehadiran</h3>
+                  <p className="text-[10px] text-slate-500">Kelola dan lihat rekapitulasi tingkat kehadiran siswa secara cepat dan tepat per tingkatan kelas</p>
+                </div>
+                
+                {/* Navigator Sub-Tab Kustom */}
+                <div className="flex bg-slate-955 p-1 rounded-xl self-start md:self-auto border border-slate-855">
+                  <button
+                    onClick={() => setAttendanceSubTab('input')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      attendanceSubTab === 'input' 
+                        ? 'bg-sky-950/80 text-sky-400 border border-sky-900/50 shadow-xs' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    📝 Isi Presensi Harian
+                  </button>
+                  <button
+                    onClick={() => setAttendanceSubTab('recap')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      attendanceSubTab === 'recap' 
+                        ? 'bg-sky-950/80 text-sky-400 border border-sky-900/50 shadow-xs' 
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    📊 Lihat Rekap Siswa
+                  </button>
+                </div>
+              </div>
+
+              {/* TAMPILAN 1: ISI PRESENSI HARIAN */}
+              {attendanceSubTab === 'input' && (
+                <div className="space-y-6">
+                  {/* Form Seleksi Kelas dan Tanggal */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-955 p-4 rounded-xl border border-slate-855">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pilih Tingkatan Kelas *</label>
+                      <select
+                        value={selectedJadwalId}
+                        onChange={(e) => setSelectedJadwalId(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-sky-500 bg-slate-900 text-slate-200 font-medium"
+                      >
+                        {jadwalList.map(j => (
+                          <option key={j.id} value={j.id}>{j.nama_kelas} ({j.ruangan})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tanggal Absensi *</label>
+                      <input
+                        type="date"
+                        value={attendanceDate}
+                        onChange={(e) => setAttendanceDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-800 rounded-xl text-xs focus:outline-none focus:border-sky-500 bg-slate-900 text-slate-200 font-medium"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={handleSaveAttendance}
+                        className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md flex items-center justify-center space-x-2"
+                      >
+                        <span>💾 Simpan Presensi Hari Ini</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabel Siswa Untuk Presensi */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-slate-350 text-xs">
+                        Daftar Siswa Terdaftar di: <span className="text-sky-400 font-extrabold">{activeJadwalInfo?.nama_kelas || 'Kelas'}</span>
+                      </h4>
+                      <span className="text-[10px] bg-sky-955 border border-sky-900 text-sky-400 px-2 py-0.5 rounded-full font-bold">
+                        {studentsInSelectedClass.length} Siswa Terdaftar
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-850 rounded-xl bg-slate-950">
+                      <table className="w-full text-left text-xs text-slate-300">
+                        <thead className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-900 border-b border-slate-855">
+                          <tr>
+                            <th className="py-3 px-4">Nama Siswa</th>
+                            <th className="py-3 px-4">No. HP Kontak</th>
+                            <th className="py-3 px-4 text-center">Status Kehadiran</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-855">
+                          {studentsInSelectedClass.length > 0 ? (
+                            studentsInSelectedClass.map(student => {
+                              const currentStatus = tempAttendance[student.id] || 'Hadir';
+                              return (
+                                <tr key={student.id} className="hover:bg-slate-850/40 transition-colors">
+                                  <td className="py-3 px-4 font-bold text-slate-100">{student.nama}</td>
+                                  <td className="py-3 px-4 font-mono text-slate-400">{student.telepon}</td>
+                                  <td className="py-3 px-4">
+                                    <div className="flex justify-center items-center space-x-1.5">
+                                      {[
+                                        { label: 'Hadir', value: 'Hadir' },
+                                        { label: 'Izin', value: 'Izin' },
+                                        { label: 'Sakit', value: 'Sakit' },
+                                        { label: 'Alpa', value: 'Alpa' }
+                                      ].map(opt => {
+                                        const isSelected = currentStatus === opt.value;
+                                        return (
+                                          <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => handleStatusChange(student.id, opt.value)}
+                                            className={`px-3 py-1.5 text-[10px] font-bold border rounded-lg transition-all ${
+                                              isSelected 
+                                                ? opt.value === 'Hadir' ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' :
+                                                  opt.value === 'Izin' ? 'bg-amber-500 text-white border-amber-500 shadow-xs' :
+                                                  opt.value === 'Sakit' ? 'bg-orange-500 text-white border-orange-500 shadow-xs' :
+                                                  'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                                : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-850'
+                                            }`}
+                                          >
+                                            {opt.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="py-6 text-center text-slate-500">Tidak ada siswa yang terdaftar di kelas ini.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAMPILAN 2: REKAPITULASI PRESENSI DETAIL (SUDAH DIPISAH KELAS 7 SAMPAI KELAS 10) */}
+              {attendanceSubTab === 'recap' && (
+                <div className="space-y-6">
+                  {/* BAR TAB KUSTOM UNTUK MEMILIH TINGKAT KELAS 7, 8, 9, 10 SECARA TEPAT */}
+                  <div className="flex flex-wrap gap-2 bg-slate-955 p-2 rounded-2xl border border-slate-850">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase self-center px-2">Filter Cepat:</span>
+                    {['Semua', 'Kelas 7', 'Kelas 8', 'Kelas 9', 'Kelas 10'].map(kelasOpt => (
+                      <button
+                        key={kelasOpt}
+                        onClick={() => setSelectedRecapClass(kelasOpt)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          selectedRecapClass === kelasOpt
+                            ? 'bg-sky-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        }`}
+                      >
+                        {kelasOpt === 'Semua' ? '✨ Semua Kelas' : `🏫 ${kelasOpt}`}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-slate-350 text-xs">
+                        Hasil Filter: <span className="text-sky-400 font-extrabold">{selectedRecapClass}</span>
+                      </h4>
+                      <span className="text-[10px] font-medium text-slate-500">
+                        {filteredRekapKehadiran.length} Siswa Terdaftar
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-850 rounded-xl bg-slate-950">
+                      <table className="w-full text-left text-xs text-slate-300">
+                        <thead className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-900 border-b border-slate-855">
+                          <tr>
+                            <th className="py-3 px-4">Nama Lengkap Siswa</th>
+                            <th className="py-3 px-4">Kelas</th>
+                            <th className="py-3 px-4 text-center text-emerald-450">Hadir</th>
+                            <th className="py-3 px-4 text-center text-amber-400">Izin</th>
+                            <th className="py-3 px-4 text-center text-orange-450">Sakit</th>
+                            <th className="py-3 px-4 text-center text-rose-450">Alpa</th>
+                            <th className="py-3 px-4 text-center font-bold text-slate-300">Total Hari</th>
+                            <th className="py-3 px-4 text-center font-bold">Rata-rata Presensi</th>
+                            <th className="py-3 px-4 text-center">Status Keaktifan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-855">
+                          {filteredRekapKehadiran.length > 0 ? (
+                            filteredRekapKehadiran.map(siswa => {
+                              let progressColor = "bg-rose-500";
+                              let badgeText = "Kurang Aktif ⚠️";
+                              let badgeColor = "bg-rose-955/80 text-rose-350 border-rose-900/50";
+
+                              if (siswa.persentase >= 90) {
+                                progressColor = "bg-emerald-500";
+                                badgeText = "Sangat Aktif ⭐";
+                                badgeColor = "bg-emerald-955/80 text-emerald-355 border-emerald-900/50";
+                              } else if (siswa.persentase >= 75) {
+                                progressColor = "bg-amber-500";
+                                badgeText = "Aktif Cukup";
+                                badgeColor = "bg-amber-955/80 text-amber-400 border-amber-900/50";
+                              }
+
+                              return (
+                                <tr key={siswa.id} className="hover:bg-slate-850/40 transition-colors">
+                                  <td className="py-4 px-4 font-extrabold text-slate-100">{siswa.nama}</td>
+                                  <td className="py-4 px-4 text-slate-400 font-medium">{siswa.kelas}</td>
+                                  <td className="py-4 px-4 text-center font-bold text-emerald-400 bg-emerald-950/10">{siswa.hadir}</td>
+                                  <td className="py-4 px-4 text-center font-bold text-amber-400 bg-amber-950/10">{siswa.izin}</td>
+                                  <td className="py-4 px-4 text-center font-bold text-orange-400 bg-orange-950/10">{siswa.sakit}</td>
+                                  <td className="py-4 px-4 text-center font-bold text-rose-400 bg-rose-950/10">{siswa.alpa}</td>
+                                  <td className="py-4 px-4 text-center font-bold text-slate-300">{siswa.total}</td>
+                                  <td className="py-4 px-4">
+                                    <div className="space-y-1 w-28 mx-auto">
+                                      <div className="flex justify-between text-[10px] font-black">
+                                        <span>{siswa.persentase}%</span>
+                                      </div>
+                                      <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-800">
+                                        <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${siswa.persentase}%` }}></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-4 px-4 text-center">
+                                    <span className={`inline-block px-2 py-0.5 text-[9px] font-extrabold border rounded-full ${badgeColor}`}>
+                                      {badgeText}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="9" className="py-8 text-center text-slate-500">
+                                Tidak ada siswa terdaftar di {selectedRecapClass}.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              3. TAB: DATA JENIS SAMPAH
+             ========================================== */}
+          {activeTab === 'jenis_sampah' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Cari jenis atau kategori..."
+                    value={searchSampah}
+                    onChange={(e) => setSearchSampah(e.target.value)}
+                    className="w-full sm:w-64 pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                  />
+                  <svg className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSampahForm({ id: null, nama_jenis: '', kategori: 'Plastik', deskripsi: '' });
+                    setIsSampahModalOpen(true);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center space-x-2 shadow-md"
+                >
+                  <span>+ Tambah Kriteria Sampah</span>
+                </button>
+              </div>
+
+              {/* Grid Katalog */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {jenisSampahList.filter(s => s.nama_jenis.toLowerCase().includes(searchSampah.toLowerCase())).map(s => (
+                  <div key={s.id} className="p-5 rounded-2xl border border-slate-800 bg-slate-955 hover:shadow-lg transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`inline-block px-2.5 py-1 text-[9px] font-extrabold rounded-full ${
+                          s.kategori === 'Plastik' ? 'bg-amber-100 text-amber-800' :
+                          s.kategori === 'Kertas' ? 'bg-blue-100 text-blue-800' :
+                          s.kategori === 'Logam' ? 'bg-indigo-100 text-indigo-855' :
+                          s.kategori === 'Kaca' ? 'bg-purple-100 text-purple-800' : 'bg-sky-100 text-sky-850'
+                        }`}>
+                          {s.kategori}
+                        </span>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditSampah(s)}
+                            className="text-slate-400 hover:text-sky-400 text-xs transition-colors"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSampah(s.id)}
+                            className="text-slate-400 hover:text-rose-450 text-xs transition-colors"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      <h4 className="font-extrabold text-slate-100 text-sm mb-1">{s.nama_jenis}</h4>
+                      <p className="text-[11px] text-slate-400 leading-relaxed mb-4">{s.deskripsi || 'Tidak ada deskripsi.'}</p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-850 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Nilai Konversi AI:</span>
+                      <div className="text-right">
+                        <p className="font-extrabold text-sky-700">Rp {(KATEGORI_VALUE[s.kategori]?.rupiah || 0).toLocaleString('id-ID')} / Kg</p>
+                        <p className="text-[9px] text-slate-400 font-bold">✨ {KATEGORI_VALUE[s.kategori]?.poin || 0} Poin Gamifikasi</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* MODAL SAMPAH */}
+              {isSampahModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-800 animate-fadeIn">
+                    <div className="px-6 py-4 bg-slate-950 text-slate-100 flex items-center justify-between border-b border-slate-800">
+                      <h3 className="font-bold text-sm">Tambah Kategori Baru</h3>
+                      <button onClick={() => setIsSampahModalOpen(false)} className="text-slate-455 hover:text-slate-200 font-bold text-lg">×</button>
+                    </div>
+                    <form onSubmit={handleSaveSampah} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Nama Sampah *</label>
+                        <input
+                          type="text"
+                          required
+                          value={sampahForm.nama_jenis}
+                          onChange={(e) => setSampahForm(prev => ({ ...prev, nama_jenis: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Kategori Utama *</label>
+                        <select
+                          value={sampahForm.kategori}
+                          onChange={(e) => setSampahForm(prev => ({ ...prev, kategori: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500 bg-white text-slate-950 font-semibold"
+                        >
+                          {Object.keys(KATEGORI_VALUE).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Deskripsi Tambahan</label>
+                        <textarea
+                          value={sampahForm.deskripsi}
+                          onChange={(e) => setSampahForm(prev => ({ ...prev, deskripsi: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          rows="3"
+                        ></textarea>
+                      </div>
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsSampahModalOpen(false)}
+                          className="px-4 py-2 rounded-xl text-xs border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              4. TAB: SETORAN SAMPAH
+             ========================================== */}
+          {activeTab === 'setoran' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="font-extrabold text-slate-100 text-sm">Log Setoran Siswa</h4>
+                <button
+                  onClick={() => {
+                    if (pesertaList.length === 0) {
+                      showToast('Daftarkan siswa terlebih dahulu sebelum mencatat setoran.', 'warning');
+                      return;
+                    }
+                    setSetoranForm({ id: null, peserta_id: '', jenis_sampah_id: '', berat: '', tanggal: '' });
+                    setIsSetoranModalOpen(true);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center space-x-2 shadow-md"
+                >
+                  <span>+ Catat Setoran Baru</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950 border-b border-slate-855">
+                    <tr>
+                      <th className="py-3 px-4">Kode Transaksi</th>
+                      <th className="py-3 px-4">Nama Lengkap Siswa</th>
+                      <th className="py-3 px-4">Kategori Sampah</th>
+                      <th className="py-3 px-4 text-right">Berat (Kg)</th>
+                      <th className="py-3 px-4">Tanggal Penyetoran</th>
+                      <th className="py-3 px-4 text-right">Nilai Daur Ulang</th>
+                      <th className="py-3 px-4 text-center">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-855">
+                    {setoranList.map(s => {
+                      const peserta = pesertaList.find(p => p.id === Number(s.peserta_id));
+                      const sampah = jenisSampahList.find(js => js.id === Number(s.jenis_sampah_id));
+                      const val = sampah ? KATEGORI_VALUE[sampah.kategori] : { rupiah: 0 };
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-850/40 transition-colors">
+                          <td className="py-3.5 px-4 font-mono text-[10px] text-slate-400">TX-0{s.id}</td>
+                          <td className="py-3.5 px-4 font-bold text-slate-100">{peserta ? peserta.nama : 'ID Siswa: ' + s.peserta_id}</td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-semibold text-slate-300">{sampah ? sampah.nama_jenis : 'Kategori Terhapus'}</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-bold text-slate-100">{Number(s.berat || s.weight || 0).toFixed(2)} Kg</td>
+                          <td className="py-3.5 px-4 font-medium text-slate-400">{s.tanggal}</td>
+                          <td className="py-3.5 px-4 text-right text-sky-400 font-extrabold">Rp {(Number(s.berat || s.weight || 0) * val.rupiah).toLocaleString('id-ID')}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              onClick={() => handleDeleteSetoran(s.id)}
+                              className="text-rose-400 hover:text-rose-350 font-bold transition-colors"
+                            >
+                              Hapus
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MODAL SETORAN */}
+              {isSetoranModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-800 animate-fadeIn">
+                    <div className="px-6 py-4 bg-slate-955 text-slate-100 flex items-center justify-between border-b border-slate-800">
+                      <h3 className="font-bold text-sm">Catat Log Daur Ulang Baru</h3>
+                      <button onClick={() => setIsSetoranModalOpen(false)} className="text-slate-400 hover:text-slate-200 font-bold text-lg">×</button>
+                    </div>
+                    <form onSubmit={handleSaveSetoran} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Nama Siswa *</label>
+                        <select
+                          required
+                          value={setoranForm.peserta_id}
+                          onChange={(e) => setSetoranForm(prev => ({ ...prev, peserta_id: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500 bg-slate-950 font-medium"
+                        >
+                          <option value="">-- Pilih Nama Siswa --</option>
+                          {pesertaList.map(p => (
+                            <option key={p.id} value={p.id}>{p.nama} ({p.kelas})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Kategori Sampah *</label>
+                        <select
+                          required
+                          value={setoranForm.jenis_sampah_id}
+                          onChange={(e) => setSetoranForm(prev => ({ ...prev, jenis_sampah_id: e.target.value }))}
+                          className="w-full px-3 py-2 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500 bg-slate-950 font-medium"
+                        >
+                          <option value="">-- Pilih Jenis Sampah --</option>
+                          {jenisSampahList.map(js => (
+                            <option key={js.id} value={js.id}>{js.nama_jenis} [{js.kategori}]</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Berat Sampah (Kg) *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            value={setoranForm.berat}
+                            onChange={(e) => setSetoranForm(prev => ({ ...prev, berat: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                            placeholder="Contoh: 2.50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Tanggal</label>
+                          <input
+                            type="date"
+                            value={setoranForm.tanggal}
+                            onChange={(e) => setSetoranForm(prev => ({ ...prev, tanggal: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsSetoranModalOpen(false)}
+                          className="px-4 py-2 rounded-xl text-xs border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                        >
+                          Rekam Log
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              5. TAB: BANK & GAMIFIKASI POIN
+             ========================================== */}
+          {activeTab === 'bank_sampah' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+              <div className="border-b border-slate-850 pb-2 flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-100 text-base">Papan Tabungan & Gamifikasi Poin YCAP</h3>
+                  <p className="text-[10px] text-slate-400">Siswa mengumpulkan koin tabungan dan poin untuk meraih lencana keaktifan lingkungan</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-955/80 border border-amber-200 px-3 py-1 rounded-full shadow-xs">
+                    Sistem Gamifikasi Aktif 🎮
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-955 border-b border-slate-850">
+                    <tr>
+                      <th className="py-3 px-4">Nama Siswa</th>
+                      <th className="py-3 px-4">Kelas</th>
+                      <th className="py-3 px-4 text-center">Frekuensi Daur Ulang</th>
+                      <th className="py-3 px-4 text-right">Total Berat disetor</th>
+                      <th className="py-3 px-4 text-center font-bold">Lencana Siswa</th>
+                      <th className="py-3 px-4 text-right">Poin Edukasi</th>
+                      <th className="py-3 px-4 text-right">Saldo Tabungan</th>
+                      <th className="py-3 px-4 text-center">Pencairan Dana</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-855">
+                    {bankSampahData.map(p => {
+                      let badge = "🍀 Eco-Novice";
+                      let badgeColor = "bg-slate-800 text-slate-350 border-slate-700";
+                      if (p.total_poin >= 150) {
+                        badge = "👑 Eco-Champion";
+                        badgeColor = "bg-amber-950/80 text-amber-400 border-amber-900/50";
+                      } else if (p.total_poin >= 80) {
+                        badge = "💎 Green Pioneer";
+                        badgeColor = "bg-sky-950/80 text-sky-400 border-sky-900/50";
+                      } else if (p.total_poin > 0) {
+                        badge = "🌿 Eco-Warrior";
+                        badgeColor = "bg-emerald-100 text-emerald-850 border-emerald-200";
+                      }
+
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-850/40 transition-colors">
+                          <td className="py-4 px-4 font-bold text-slate-100">{p.nama}</td>
+                          <td className="py-4 px-4 font-medium text-slate-450">{p.kelas}</td>
+                          <td className="py-4 px-4 text-center font-bold text-sky-655">{p.setoran_count} kali</td>
+                          <td className="py-4 px-4 text-right font-semibold text-slate-200">{p.total_berat.toFixed(2)} Kg</td>
+                          <td className="py-4 px-4 text-center">
+                            <span className={`inline-block px-2.5 py-0.5 text-[9px] font-bold border rounded-full ${badgeColor}`}>
+                              {badge}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-right font-black text-amber-500">✨ {p.total_poin} pts</td>
+                          <td className="py-4 px-4 text-right font-black text-sky-400">Rp {p.total_rupiah.toLocaleString('id-ID')}</td>
+                          <td className="py-4 px-4 text-center">
+                            <button
+                              onClick={() => {
+                                if (p.total_rupiah <= 0) {
+                                  showToast('Tidak ada tabungan yang dapat dicairkan.', 'error');
+                                  return;
+                                }
+                                openConfirm(
+                                  'Cairkan Dana',
+                                  `Simulasi pencairan tabungan sebesar Rp ${p.total_rupiah.toLocaleString('id-ID')} untuk ${p.nama}?`,
+                                  () => {
+                                    showToast(`Berhasil melakukan pencairan kas Rp ${p.total_rupiah.toLocaleString('id-ID')} kepada ${p.nama}.`, 'success');
+                                  }
+                                );
+                              }}
+                              className="bg-sky-950/80 hover:bg-sky-900/80 text-sky-400 font-bold px-3 py-1 rounded-xl text-[10px] border border-sky-900/50 transition-colors shadow-xs"
+                            >
+                              Cairkan
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              6. TAB: JADWAL KELAS
+             ========================================== */}
+          {activeTab === 'jadwal' && (
+            <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="font-extrabold text-slate-100 text-base">Kurikulum & Penjadwalan Edukasi</h3>
+                  <p className="text-[10px] text-slate-550">Jadwalkan agenda kelas mingguan bilingual YCAP</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setJadwalForm({ id: null, nama_kelas: 'Kelas 7', instruktur: '', tanggal: '', jam: '', kuota: '', ruangan: '' });
+                    setIsJadwalModalOpen(true);
+                  }}
+                  className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all flex items-center space-x-2 shadow-md"
+                >
+                  <span>+ Atur Agenda Kelas</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {jadwalList.map(j => {
+                  const registeredCount = pesertaList.filter(p => p.kelas === j.nama_kelas).length;
+                  return (
+                    <div key={j.id} className="bg-slate-955 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition-all">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[9px] uppercase font-bold text-sky-400 bg-sky-950 border border-sky-900/50 px-2.5 py-1 rounded-full">
+                            📍 {j.ruangan}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteJadwal(j.id)}
+                            className="text-slate-500 hover:text-rose-400 text-xs transition-colors"
+                          >
+                            🗑️ Hapus
+                          </button>
+                        </div>
+                        <h4 className="font-extrabold text-slate-100 text-sm mb-1">{j.nama_kelas}</h4>
+                        <p className="text-[11px] text-slate-400 mb-4">Pengajar: <strong className="text-slate-300">{j.instruktur}</strong></p>
+                        
+                        <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-855 text-[11px] text-slate-400">
+                          <div className="flex justify-between">
+                            <span>Tanggal Pembelajaran:</span>
+                            <span className="font-semibold text-slate-200">{j.tanggal}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Waktu Belajar:</span>
+                            <span className="font-semibold text-slate-200">{j.jam || 'Flexible'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bar Okupansi */}
+                      <div className="mt-4 pt-3 border-t border-slate-850 space-y-1">
+                        <div className="flex justify-between text-[11px] font-semibold text-slate-400">
+                          <span>Okupansi Siswa:</span>
+                          <span className="text-slate-200">{registeredCount} / {j.kuota || 20} Terisi</span>
+                        </div>
+                        <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-850">
+                          <div 
+                            className="bg-sky-600 h-full rounded-full transition-all"
+                            style={{ width: `${(registeredCount / (j.kuota || 20)) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* MODAL JADWAL KELAS */}
+              {isJadwalModalOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-xs flex items-center justify-center p-4">
+                  <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-800 animate-fadeIn">
+                    <div className="px-6 py-4 bg-slate-950 text-slate-100 flex items-center justify-between border-b border-slate-800">
+                      <h3 className="font-bold text-sm">Buat Agenda Baru</h3>
+                      <button onClick={() => setIsJadwalModalOpen(false)} className="text-slate-455 hover:text-slate-200 font-bold text-lg">×</button>
+                    </div>
+                    <form onSubmit={handleSaveJadwal} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Nama Tingkat Kelas *</label>
+                        <select
+                          required
+                          value={jadwalForm.nama_kelas}
+                          onChange={(e) => setJadwalForm(prev => ({ ...prev, nama_kelas: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500 bg-slate-950 font-semibold text-slate-950"
+                        >
+                          <option value="Kelas 7">Kelas 7</option>
+                          <option value="Kelas 8">Kelas 8</option>
+                          <option value="Kelas 9">Kelas 9</option>
+                          <option value="Kelas 10">Kelas 10</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Instruktur / Guru *</label>
+                        <input
+                          type="text"
+                          required
+                          value={jadwalForm.instruktur}
+                          onChange={(e) => setJadwalForm(prev => ({ ...prev, instruktur: e.target.value }))}
+                          className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Tanggal *</label>
+                          <input
+                            type="date"
+                            required
+                            value={jadwalForm.tanggal}
+                            onChange={(e) => setJadwalForm(prev => ({ ...prev, tanggal: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Jam Belajar</label>
+                          <input
+                            type="text"
+                            value={jadwalForm.jam}
+                            onChange={(e) => setJadwalForm(prev => ({ ...prev, jam: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                            placeholder="e.g. 09:00 - 11:00"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Ruangan / Tempat</label>
+                          <input
+                            type="text"
+                            value={jadwalForm.ruangan}
+                            onChange={(e) => setJadwalForm(prev => ({ ...prev, ruangan: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase mb-1">Kuota Siswa (Orang)</label>
+                          <input
+                            type="number"
+                            value={jadwalForm.kuota}
+                            onChange={(e) => setJadwalForm(prev => ({ ...prev, kuota: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-955 border border-slate-800 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsJadwalModalOpen(false)}
+                          className="px-4 py-2 rounded-xl text-xs border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                        >
+                          Simpan Agenda
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              7. TAB: LAPS & GRAPHICS
+             ========================================== */}
+          {activeTab === 'laporan' && (
+            <div className="space-y-6">
+              <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-md border border-slate-850 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-sm">Laporan Mutasi Lingkungan Real-time</h3>
+                  <p className="text-[11px] text-slate-450">Laporan kontribusi sirkularitas karbon dari seluruh siswa dididik YCAP</p>
+                </div>
+                <button
+                  onClick={() => showToast('Berkas Excel diunduh!', 'success')}
+                  className="bg-sky-950/80 hover:bg-sky-900/80 border border-sky-800 text-sky-400 font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-md"
+                >
+                  Ekspor CSV (.csv)
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Proporsi Daur Ulang */}
+                <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-855 flex flex-col items-center justify-around space-y-4">
+                  <h4 className="font-extrabold text-slate-200 text-xs w-full text-left">Kontribusi Pengurangan Sampah (%)</h4>
+                  
+                  <div className="relative w-44 h-44">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#020617" strokeWidth="3" />
+                      {/* Plastik 35% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="4.5" 
+                        strokeDasharray="35 65" strokeDashoffset="0" />
+                      {/* Kertas 45% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="4.5" 
+                        strokeDasharray="45 55" strokeDashoffset="-35" />
+                      {/* Logam / Kaca 20% */}
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#6366f1" strokeWidth="4.5" 
+                        strokeDasharray="20 80" strokeDashoffset="-80" />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="text-xl font-black text-slate-100">{stats.totalSetoran}</span>
+                      <span className="text-[9px] text-slate-450 font-bold">Total Transaksi</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 w-full text-[10px] font-semibold text-slate-400">
+                    <div className="flex items-center space-x-1 justify-center">
+                      <span className="w-2.5 h-2.5 bg-amber-500 rounded-xs"></span>
+                      <span>Plastik (35%)</span>
+                    </div>
+                    <div className="flex items-center space-x-1 justify-center">
+                      <span className="w-2.5 h-2.5 bg-blue-500 rounded-xs"></span>
+                      <span>Kertas (45%)</span>
+                    </div>
+                    <div className="flex items-center space-x-1 justify-center">
+                      <span className="w-2.5 h-2.5 bg-indigo-500 rounded-xs"></span>
+                      <span>Lainnya (20%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dampak Hijau Sekolah */}
+                <div className="bg-slate-900 p-6 rounded-2xl shadow-md border border-slate-850 flex flex-col justify-between space-y-4">
+                  <div>
+                    <h4 className="font-extrabold text-slate-200 text-xs">Evaluasi Keberlanjutan Papua</h4>
+                    <p className="text-[10px] text-slate-500 mt-1">Dampak positif sirkularitas karbon sekolah</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-3 bg-emerald-950/40 rounded-xl border border-emerald-900/30 flex items-center space-x-3 text-xs text-emerald-250">
+                      <div className="text-xl">🌴</div>
+                      <div>
+                        <h5 className="font-bold">Potensi Hutan Papua Terselamatkan</h5>
+                        <p className="text-[10px] text-emerald-455 mt-0.5">Penghitungan AI mendeteksi sirkulasi kertas YCAP menyelamatkan sekitar <strong>{(stats.totalBerat * 0.1).toFixed(1)} batang pohon dewasa</strong>.</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-sky-950/40 rounded-xl border border-sky-900/30 flex items-center space-x-3 text-xs text-sky-250">
+                      <div className="text-xl">☁️</div>
+                      <div>
+                        <h5 className="font-bold">Emisi Karbon Tereduksi</h5>
+                        <p className="text-[10px] text-sky-400 mt-0.5">Penekanan karbon dioksida diestimasi: <strong>{(stats.totalBerat * 1.6).toFixed(1)} kg CO₂-eq</strong>.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* CUSTOM CONFIRMATION DIALOG MODAL (Aman untuk Peramban/Iframe) */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-955/65 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden border border-slate-800 animate-fadeIn">
+            <div className="p-6 space-y-4 text-center">
+              <span className="text-3xl block text-amber-500">⚠️</span>
+              <h3 className="text-sm font-extrabold text-slate-100">{confirmModal.title}</h3>
+              <p className="text-xs text-slate-450 leading-relaxed">{confirmModal.message}</p>
+            </div>
+            <div className="grid grid-cols-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="py-3 text-xs font-bold text-slate-450 hover:bg-slate-850 border-r border-slate-800 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                className="py-3 text-xs font-bold text-rose-455 hover:bg-rose-950/50 transition-colors"
+              >
+                Ya, Konfirmasi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
